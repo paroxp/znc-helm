@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "znc.fullname" . }}
+  labels:
+{{ include "znc.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+{{ include "znc.labels" . | indent 6 }}
+  serviceName: {{ include "znc.fullname" . }}
+  template:
+    metadata:
+      labels:
+{{ include "znc.labels" . | indent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+          - name: http
+            containerPort: {{ .Values.service.port }}
+            protocol: TCP
+        {{- if .Values.config.ssl }}
+        livenessProbe:
+          tcpSocket:
+            port: http
+        readinessProbe:
+          tcpSocket:
+            port: http
+        {{ else }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+        - name: {{ include "znc.fullname" . }}
+          mountPath: /znc-data
+      initContainers:
+      - name: init-{{ .Chart.Name }}-configuration
+        image: busybox
+        command: ['sh']
+        args:
+        - -c
+        - |
+          mkdir -p /znc-data/configs
+          if [ ! -f /znc-data/configs/znc.conf ]; then
+            cp /znc-data-init/znc.conf /znc-data/configs/znc.conf
+          fi
+        volumeMounts:
+        - name: {{ include "znc.fullname" . }}
+          mountPath: /znc-data
+        - name: {{ include "znc.fullname" . }}-init
+          mountPath: /znc-data-init
+      {{ if .Values.config.ssl -}}
+      - name: init-{{ .Chart.Name }}-pem
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        args: ['--makepem']
+        volumeMounts:
+        - name: {{ include "znc.fullname" . }}
+          mountPath: /znc-data
+      {{- end }}
+      volumes:
+      - name: {{ include "znc.fullname" . }}
+        persistentVolumeClaim:
+          claimName: {{ include "znc.fullname" . }}
+      - name: {{ include "znc.fullname" . }}-init
+        secret:
+          secretName: {{ include "znc.fullname" . }}-configs
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

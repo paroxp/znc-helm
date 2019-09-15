@@ -1,0 +1,61 @@
+replicaCount: 1
+
+image:
+  repository: znc
+  tag: "1.7.4-slim"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 6697
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+  - host: znc.local
+    paths: []
+
+  tls: []
+  #  - secretName: znc-tls
+  #    hosts:
+  #      - znc.local
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistent:
+  enabled: true
+  size: 8Gi
+
+config:
+  ssl: false
+  ipv4: true
+  ipv6: false
+
+  modules:
+  - webadmin
+
+  users:
+  - name: admin
+    admin: true
+    modules:
+    - chansaver
+    - controlpanel
